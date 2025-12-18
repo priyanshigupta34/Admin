@@ -1,15 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, Lock, LogIn, Shield } from "lucide-react";
-
-const FIXED_ADMIN = {
-  email: "admin@aayan.com",
-  password: "ayan1234",
-  name: "Aayan admin",
-};
+import axios from "axios";
 
 const AdminLogin = ({ onLoginSuccess, navigate } = {}) => {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -35,56 +30,49 @@ const AdminLogin = ({ onLoginSuccess, navigate } = {}) => {
     setError("");
     setIsLoading(true);
 
-    const trimmedEmail = (email || "").trim();
+    const trimmedEmail = (username || "").trim();
     if (!trimmedEmail || !password) {
       setError("Please enter both email and password.");
       setIsLoading(false);
       return;
     }
 
-    // Simulate loading for demo
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    // FIXED ADMIN 
-      if (trimmedEmail === FIXED_ADMIN.email && password === FIXED_ADMIN.password) {
-      const adminRecord = { name: FIXED_ADMIN.name, email: FIXED_ADMIN.email };
-      localStorage.setItem("token", "STATIC_ADMIN_TOKEN");
-      _setCurrentAdmin(adminRecord);
-      if (typeof onLoginSuccess === "function") onLoginSuccess(adminRecord);
-      // prefer a navigate prop if supplied, otherwise use react-router's navigate
-      if (typeof navigate === "function") navigate("/admin/dashboard");
-      else routerNavigate("/admin/dashboard");
-      setIsLoading(false);
-      return;
-    }
-
-    // SERVER LOGIN FOR NORMAL ADMINS
     try {
-      const res = await api.post(
-        "https://localhost5000/api/adminlogin",
-        { email: trimmedEmail, password },
+      const res = await axios.post(
+        "http://localhost:4001/api/admin/login",
+        {
+          username: trimmedEmail, // backend expects username
+          password,
+        },
         { headers: { "Content-Type": "application/json" } }
       );
 
       const token = extractToken(res?.data);
-      if (token) {
-        localStorage.setItem("token", token);
+      if (!token) {
+        throw new Error("Token not found in response");
       }
 
+      localStorage.setItem("token", token);
+
       const adminRecord = {
-        name: res?.data?.user?.name || trimmedEmail,
-        email: res?.data?.user?.email || trimmedEmail,
+        username: trimmedEmail,
+        role: "admin",
       };
 
       _setCurrentAdmin(adminRecord);
-      if (typeof onLoginSuccess === "function") onLoginSuccess(adminRecord);
 
-      // prefer a navigate prop if supplied, otherwise use react-router's navigate
-      if (typeof navigate === "function") navigate("/admin/dashboard");
-      else routerNavigate("/admin/dashboard");
+      if (typeof onLoginSuccess === "function") {
+        onLoginSuccess(adminRecord);
+      }
+
+      if (typeof navigate === "function") {
+        navigate("/admin/dashboard");
+      } else {
+        routerNavigate("/admin/dashboard");
+      }
     } catch (err) {
-      console.error("Admin login failed:", err?.response || err);
-      setError(err?.response?.data?.msg || "Invalid email or password.");
+      console.error("Admin login failed:", err);
+      setError(err?.response?.data?.message || "Invalid username or password.");
     } finally {
       setIsLoading(false);
     }
@@ -95,8 +83,14 @@ const AdminLogin = ({ onLoginSuccess, navigate } = {}) => {
       {/* Animated background elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-72 h-72 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse"></div>
-        <div className="absolute top-40 right-10 w-72 h-72 bg-cyan-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse" style={{ animationDelay: '4s' }}></div>
+        <div
+          className="absolute top-40 right-10 w-72 h-72 bg-cyan-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse"
+          style={{ animationDelay: "2s" }}
+        ></div>
+        <div
+          className="absolute -bottom-8 left-1/2 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse"
+          style={{ animationDelay: "4s" }}
+        ></div>
       </div>
 
       <div className="w-full max-w-md relative z-10">
@@ -106,7 +100,7 @@ const AdminLogin = ({ onLoginSuccess, navigate } = {}) => {
             <Shield className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-            Admin Portal
+            Builder Owner Admin
           </h1>
           <p className="text-gray-600 mt-2">Sign in to access your dashboard</p>
         </div>
@@ -114,26 +108,25 @@ const AdminLogin = ({ onLoginSuccess, navigate } = {}) => {
         {/* Login Card */}
         <div className="bg-white/80 backdrop-blur-lg p-8 rounded-2xl shadow-xl border border-blue-100 transform transition-all duration-300 hover:shadow-2xl">
           <form onSubmit={handleLogin} className="space-y-6">
-            {/* Email Field */}
+            {/* Username Field */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                Email Address
+                Username
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-blue-400" />
                 </div>
                 <input
-                  type="email"
+                  type="text"
                   className="w-full pl-10 pr-4 py-3 border border-blue-200 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@company.com"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="admin"
                   disabled={isLoading}
                 />
               </div>
             </div>
-
             {/* Password Field */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">

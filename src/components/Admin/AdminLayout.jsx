@@ -20,7 +20,7 @@ export default function AdminLayout({ children }) {
             </div>
 
             <div>
-              <div className="font-bold text-lg">ADMIN</div>
+              <div className="font-bold text-lg">Builder Owner</div>
               <div className="text-xs text-blue-200">Admin Panel</div>
             </div>
           </div>
@@ -30,7 +30,7 @@ export default function AdminLayout({ children }) {
           <div className="space-y-1">
             <SidebarLink to="/admin/dashboard" label="Home " rightIcon />
             <SidebarLink
-              to="/admin/users"
+              // to="/admin/users"
               label="Users"
               submenu={[
                 { label: "Manage User", to: "/admin/users/manage" },
@@ -41,7 +41,7 @@ export default function AdminLayout({ children }) {
               ]}
             />
             <SidebarLink
-              to="/admin/data"
+              // to="/admin/data"
               label="Data"
               submenu={[
                 { label: "Manage Data", to: "/admin/data/manage" },
@@ -51,7 +51,16 @@ export default function AdminLayout({ children }) {
                 { label: "Update Data", to: "/admin/data/update" },
               ]}
             />
-            
+            <SidebarLink
+              // to="/admin/subscription"
+              label="Subscriptions"
+              submenu={[
+                // { label: "Add Subscription",to:"/admin/subscription/create-subscription"},
+                // { label: "Edit Subscription",to:"/admin/subscription/update-subscription"},
+                { label: "Manage Subscription",to:"/admin/subscription/manage-subscription"},
+             
+              ]}
+            />
           </div>
 
           <div className="mt-4 pt-4 border-t border-white/20">
