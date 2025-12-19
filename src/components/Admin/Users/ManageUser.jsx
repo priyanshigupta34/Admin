@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Edit, Trash2, Eye, ChevronDown, CheckCircle } from "lucide-react";
+import { Edit, Eye, ChevronDown, CheckCircle, Ban } from "lucide-react";
 import axios from "axios";
+import EditUser from "./EditUser";
+
+
+ const itemsPerPage = 10;
 
 const ManageUser = () => {
   const [users, setUsers] = useState([]);
@@ -11,7 +15,10 @@ const ManageUser = () => {
   const [debouncedEmail, setDebouncedEmail] = useState("");
   const [debouncedName, setDebouncedName] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = 5;
+  const [viewUser, setViewUser] = useState(null);
+  const [editUser, setEditUser] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -44,6 +51,32 @@ const ManageUser = () => {
     fetchUsers();
   }, []);
 
+  const updateStatus = async (userId, currentStatus) => {
+    try {
+      const newStatus = currentStatus === 1 ? 2 : 1;
+
+      await axios.put(
+        `http://localhost:4001/api/user/${userId}/status`,
+        { status: newStatus },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId ? { ...u, user_status: newStatus } : u
+        )
+      );
+    } catch (error) {
+      console.error(
+        "Failed to update status",
+        error.response?.data || error.message
+      );
+    }
+  };
   const STATUS_LABEL = {
     1: "Active",
     2: "Blocked",
@@ -54,6 +87,25 @@ const ManageUser = () => {
     Active: 1,
     Blocked: 2,
     Unverified: 0,
+  };
+
+  const getUserById = async (id) => {
+    setLoading(true);
+    try {
+      const res = await axios.get(
+        `http://localhost:4001/api/user/users/${id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+      setViewUser(res.data);
+    } catch (err) {
+      console.error("Failed to fetch user", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -80,6 +132,23 @@ const ManageUser = () => {
 
     return emailMatch && nameMatch && statusMatch;
   });
+
+  const startIndex = (currentPage - 1) * itemsPerPage;
+const endIndex = startIndex + itemsPerPage;
+
+const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+const totalPages = Math.max(
+  1,
+  Math.ceil(filteredUsers.length / itemsPerPage)
+);
+
+  
+
+useEffect(() => {
+  if (currentPage > totalPages) {
+    setCurrentPage(totalPages || 1);
+  }
+}, [totalPages, currentPage]);
 
   return (
     <div className="space-y-6">
@@ -171,57 +240,108 @@ const ManageUser = () => {
           </thead>
 
           <tbody>
-            {filteredUsers.map((u, index) => (
-              <tr
-                key={u.id}
-                className="border-b border-blue-100 hover:bg-blue-50 transition-colors duration-200"
-              >
-                <td className="p-3 text-gray-700">{index + 1}</td>
-                <td className="p-3 font-medium text-gray-800">{u.name}</td>
-                <td className="p-3 text-gray-700">{u.email}</td>
-                <td className="p-3 text-gray-700">{u.number}</td>
-                <td className="px-4 py-3 text-center align-middle">
-                  <span
-                    className={`inline-flex items-center justify-center px-3 py-1 text-xs font-medium rounded-full min-w-[90px] ${
-                      u.user_status === 1
-                        ? "bg-green-100 text-green-700"
-                        : u.user_status === 2
-                        ? "bg-red-100 text-red-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}
-                  >
-                    {STATUS_LABEL[u.user_status]}
-                  </span>
-                </td>
+  {paginatedUsers.length === 0 ? (
+    <tr>
+      <td colSpan="6" className="text-center py-6 text-gray-400">
+        No users on this page
+      </td>
+    </tr>
+  ) : (
+    paginatedUsers.map((u, index) => (
+      <tr
+        key={u.id}
+        className="border-b border-blue-100 hover:bg-blue-50 transition-colors duration-200"
+      >
+        <td className="p-3 text-gray-700">
+          {(currentPage - 1) * itemsPerPage + index + 1}
+        </td>
+        <td className="p-3 font-medium text-gray-800">{u.name}</td>
+        <td className="p-3 text-gray-700">{u.email}</td>
+        <td className="p-3 text-gray-700">{u.number}</td>
 
-                {/* ACTION ICONS */}
-                <td className="p-3 flex gap-3">
-                  <button className="p-1.5 hover:bg-blue-100 rounded-lg transition-all duration-200">
-                    <Eye size={18} className="cursor-pointer text-blue-500" />
-                  </button>
-                  <button
-                    onClick={() =>
-                      updateStatus(
-                        u.id,
-                        u.status === "Active" ? "Blocked" : "Active"
-                      )
-                    }
-                    className="p-1.5 hover:bg-green-100 rounded-lg transition-all duration-200"
-                  >
-                    <Edit size={18} className="cursor-pointer text-green-600" />
-                  </button>
-                  {/* <button className="p-1.5 hover:bg-red-100 rounded-lg transition-all duration-200">
-                    <Trash2 size={18} className="cursor-pointer text-red-600" />
-                  </button> */}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <td className="px-4 py-3 text-center align-middle">
+          <span
+            className={`inline-flex items-center justify-center px-3 py-1 text-xs font-medium rounded-full min-w-[90px] ${
+              u.user_status === 1
+                ? "bg-green-100 text-green-700"
+                : u.user_status === 2
+                ? "bg-red-100 text-red-700"
+                : "bg-yellow-100 text-yellow-700"
+            }`}
+          >
+            {STATUS_LABEL[u.user_status]}
+          </span>
+        </td>
 
-        {filteredUsers.length === 0 && (
-          <p className="text-center text-gray-400 py-6">No matching users...</p>
-        )}
+        <td className="p-3 flex gap-3 items-center justify-center">
+          <button
+            title="View User"
+            onClick={() => getUserById(u.id)}
+            className={`p-1.5 rounded-lg transition ${
+              u.user_status === 0
+                ? "hover:bg-yellow-100"
+                : "hover:bg-blue-100"
+            }`}
+          >
+            <Eye
+              size={18}
+              className={
+                u.user_status === 0
+                  ? "text-yellow-500"
+                  : "text-blue-500"
+              }
+            />
+          </button>
+
+          <button
+            title="Edit User"
+            onClick={() => {
+              setEditUser(u);
+              setEditOpen(true);
+            }}
+            className={`p-1.5 rounded-lg transition ${
+              u.user_status === 0
+                ? "hover:bg-yellow-100"
+                : "hover:bg-green-100"
+            }`}
+          >
+            <Edit
+              size={18}
+              className={
+                u.user_status === 0
+                  ? "text-yellow-500"
+                  : "text-green-600"
+              }
+            />
+          </button>
+
+          {u.user_status === 1 && (
+            <button
+              title="Block User"
+              onClick={() => updateStatus(u.id, u.user_status)}
+              className="p-1.5 hover:bg-red-100 rounded-lg transition"
+            >
+              <Ban size={18} className="text-red-500" />
+            </button>
+          )}
+
+          {u.user_status === 2 && (
+            <button
+              title="Unblock User"
+              onClick={() => updateStatus(u.id, u.user_status)}
+              className="p-1.5 hover:bg-green-100 rounded-lg transition"
+            >
+              <CheckCircle size={18} className="text-green-500" />
+            </button>
+          )}
+        </td>
+      </tr>
+    ))
+  )}
+</tbody>
+
+</table>
+        
       </div>
 
       {/* Pagination */}
@@ -233,7 +353,7 @@ const ManageUser = () => {
         >
           Prev
         </button>
-
+           {totalPages > 0 && (
         <div className="flex gap-1">
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
             <button
@@ -249,6 +369,7 @@ const ManageUser = () => {
             </button>
           ))}
         </div>
+           )}
 
         <button
           onClick={() =>
@@ -262,6 +383,52 @@ const ManageUser = () => {
           Next
         </button>
       </div>
+
+      {viewUser && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg w-[400px]">
+            <h2 className="text-lg font-semibold mb-4">User Details</h2>
+
+            <p>
+              <b>Name:</b> {viewUser.name}
+            </p>
+            <p>
+              <b>Email:</b> {viewUser.email}
+            </p>
+            <p>
+              <b>Status:</b> {STATUS_LABEL[viewUser.status]}
+            </p>
+
+            <button
+              onClick={() => setViewUser(null)}
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      <EditUser
+        open={editOpen}
+        user={editUser}
+        onClose={() => setEditOpen(false)}
+        onUpdated={(updatedUser) => {
+          setUsers((prev) =>
+            prev.map((u) =>
+              u.id === updatedUser._id
+                ? {
+                    ...u,
+                    name: updatedUser.name,
+                    email: updatedUser.email,
+                    user_status: updatedUser.user_status ?? updatedUser.status,
+                    role: updatedUser.role,
+                  }
+                : u
+            )
+          );
+        }}
+      />
     </div>
   );
 };
